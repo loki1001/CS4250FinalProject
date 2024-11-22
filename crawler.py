@@ -6,8 +6,9 @@ import urllib.request
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
 
-# Define frontier stack
+# Define frontier & visited URL lists
 frontier = ['https://www.cpp.edu/engineering/ce/index.shtml']
+visited = []
 
 # Define MongoDB connection
 client = MongoClient("localhost", 27017)
@@ -26,16 +27,12 @@ def flagTargetPage(url):
         "target": True
     }})
 
-def checkExists(url):
-    results = col.find({"url": url})
-    return len(list(results)) > 0
-
 # Define crawler function
 def crawlerThread(frontier, num_targets):
     targets_found = 0
     while len(frontier) > 0:
         # Fetch URL from top of frontier
-        url = frontier[0]
+        url = frontier.pop(0)
         try:
             # Fetch HTML content
             with urllib.request.urlopen(url) as response:
@@ -44,6 +41,8 @@ def crawlerThread(frontier, num_targets):
             bs = BeautifulSoup(html, 'html.parser')
             # Store page
             storePage(url, html)
+            # Mark URL as visited
+            visited.append(url)
             # Check target 
             if len(bs.find_all(class_="fac-staff")) == 1:
                 targets_found += 1
@@ -57,17 +56,15 @@ def crawlerThread(frontier, num_targets):
                 # Add unvisted links to frontier if target count not reached
                 for link in bs.find_all('a', href=True):
                     href = urljoin(url, link.get('href'))
-                    if not checkExists(href):
+                    if not href in visited:
                         frontier.append(href)
         # Handle potential BS4 errors
         except HTTPError as e:
             print(f"HTTP Error: {e}")
         except URLError as e:
             print(f"URL Error: {e}")
-        except Exception:
-            print("Unknown exception")
-        # Remove current URL from frontier
-        del frontier[0]
+        except Exception as e:
+            print(f"Unknown exception: {e}")
 
 # Initialize crawler thread
 crawlerThread(frontier, 25)
