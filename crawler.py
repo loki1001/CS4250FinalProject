@@ -56,7 +56,7 @@ def crawlerThread(frontier, num_targets):
             else:
                 # Add unvisted links to frontier if target count not reached
                 for link in bs.find_all('a', href=True):
-                    href = urljoin('https://www.cpp.edu/engineering/ce/faculty.shtml', link.get('href'))
+                    href = urljoin(url, link.get('href'))
                     if not checkExists(href):
                         frontier.append(href)
         # Handle potential BS4 errors
