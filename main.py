@@ -1,7 +1,8 @@
-# main.py
 from pymongo import MongoClient
 from crawler import Crawler
+from indexer import Indexer
 from parser import Parser
+from search_engine import SearchEngine
 
 
 def connectDataBase():
@@ -10,48 +11,7 @@ def connectDataBase():
     db = client['FinalProject']
     return db
 
-
-# FOR TESTING
-def view_parsed_data():
-    db = connectDataBase()
-    col = db['pages']
-
-    # Find all documents that have been processed
-    processed_pages = col.find({"processed": True})
-
-    for page in processed_pages:
-        print("\n" + "=" * 80)
-        print(f"URL: {page['url']}")
-        print("=" * 80)
-
-        if 'parsed_data' in page:
-            faculty_info = page['parsed_data']
-
-            # Print basic information
-            print("\nBasic Information:")
-            print(f"Name: {faculty_info.get('name', 'N/A')}")
-            print(f"Title: {faculty_info.get('title', 'N/A')}")
-            print(f"Department: {faculty_info.get('department', 'N/A')}")
-            print(f"College: {faculty_info.get('college', 'N/A')}")
-            print(f"Email: {faculty_info.get('email', 'N/A')}")
-            print(f"Phone: {faculty_info.get('phone', 'N/A')}")
-            print(f"Office: {faculty_info.get('office', 'N/A')}")
-            print(f"Timing: {faculty_info.get('timing', 'N/A')}")
-
-            # Print sections
-            if 'sections' in faculty_info:
-                print("\nSections:")
-                for section_title, content in faculty_info['sections'].items():
-                    print(f"\n{section_title}:")
-                    for item in content:
-                        print(f"  - {item}")
-
-            print(f"Content: {faculty_info.get('content', 'N/A')}")
-        else:
-            print("No parsed data available for this page")
-
-
-def main():
+def crawl():
     db = connectDataBase()
     col = db['pages']
 
@@ -63,11 +23,88 @@ def main():
     targets_found = crawler.crawlerThread()
     print(f"Finished crawling. Found {targets_found}")
 
+
+def parse():
+    db = connectDataBase()
+    col = db['pages']
+
     print(f"Starting to parse pages flagged by crawler")
     parser = Parser(col)
     parser.parse_all_faculty_pages()
     print(f"Done parsing")
 
+
+def index():
+    db = connectDataBase()
+
+    print()
+    print("Starting to index")
+    indexer = Indexer(db)
+    indexer.create_index()
+    print("Indexing complete")
+
+
+def search():
+    db = connectDataBase()
+
+    print()
+    print("Starting search engine")
+    search_engine = SearchEngine(db)
+
+    while True:
+        print()
+        query = input("Enter search query (or 'q' to quit): ")
+        if query.lower() == 'q':
+            break
+
+        results, search_time = search_engine.search(query)
+
+        if not results:
+            print()
+            print("No results")
+            continue
+
+        search_engine.display_results(results, query, search_time)
+
+
+def all():
+    crawl()
+    parse()
+    index()
+    search()
+
+
+def main():
+    while True:
+        print()
+        print("Final Project")
+        print("1. Run crawler")
+        print("2. Run parser")
+        print("3. Build index")
+        print("4. Start search")
+        print("5. Run all")
+        print("6. Exit")
+        print()
+
+        choice = input("Enter your selection (1-6): ")
+
+        if choice == '1':
+            crawl()
+        elif choice == '2':
+            parse()
+        elif choice == '3':
+            index()
+        elif choice == '4':
+            search()
+        elif choice == '5':
+            all()
+        elif choice == '6':
+            print()
+            print("Exiting")
+            break
+        else:
+            print("Invalid choice. Please try again.")
+
+
 if __name__ == '__main__':
     main()
-    view_parsed_data()

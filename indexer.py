@@ -1,67 +1,80 @@
-from sklearn.feature_extraction.text import TfidfVectorizer
-import string, re
-from pymongo import MongoClient
+# indexer.py
+from text_transformer import TextTransformer
 from bson import ObjectId
 
-client = MongoClient('mongodb://localhost:27017/')
-db = client['FinalProject']
+class Indexer:
+    def __init__(self, db):
+        self.db = db
+        self.pages_col = db['pages']
+        self.docs_col = db['documents']
+        self.terms_col = db['terms']
+        self.text_transformer = TextTransformer()
 
-pagesCol = db['pages']
-docsCol = db['documents']
-termsCol = db['terms']
+    def get_documents(self):
+        targets = self.pages_col.find({"target": True})
 
-# Fetch target pages
-targets = pagesCol.find({ "target": True })
+        docs = []
+        doc_ids = []
+        doc_urls = []
 
-# Define array to store merged document content
-docs = []
-docIds = []
+        for target in list(targets):
+            if 'parsed_data' in target and 'content' in target['parsed_data']:
+                docs.append(target['parsed_data']['content'])
+                doc_ids.append(target["_id"])
+                doc_urls.append(target["url"])
 
-# Squash content into document strings
-for target in list(targets):
-    content = ""
-    for key, value in target['parsed_data']['sections'].items():
-        content += key + " "
-        for v in value:
-            content += v + " "
-    docs.append(content)
-    docIds.append(target["_id"])
+        return docs, doc_ids, doc_urls
 
-# Convert to lowercase and strip punctuation
-regex = re.compile('[%s]' % re.escape(string.punctuation))
-docs = [regex.sub('', doc.lower()) for doc in docs]
+    def create_vectorizer(self):
+        return self.text_transformer.create_vectorizer()
 
-# Define vectorizer 
-vectorizer  = TfidfVectorizer(analyzer='word', stop_words='english', ngram_range=(1, 3)) # Generate unigrams, bigrams and trigrams
-vectorizer.fit(docs)
+    def store_documents(self, doc_ids, docs, urls, tfidf_array):
+        for idx, doc in enumerate(docs):
+            self.docs_col.update_one(
+                {"_id": ObjectId(doc_ids[idx])},
+                {
+                    "$set": {
+                        "content": doc,
+                        "tfidf": tfidf_array[idx].tolist(),
+                        "url": urls[idx]
+                    }
+                },
+                upsert=True
+            )
 
-# Transform documents into tf-idf vectors
-docsV = vectorizer.transform(docs).toarray()
+    def store_terms(self, vectorizer, tfidf_array, doc_ids):
+        for term, term_idx in vectorizer.vocabulary_.items():
+            doc_list = [
+                str(doc_ids[doc_idx])
+                for doc_idx, doc in enumerate(tfidf_array)
+                if doc[term_idx] > 0
+            ]
 
-# Store IDF values
-idf = vectorizer.idf_.tolist()
+            self.terms_col.update_one(
+                {"term": term},
+                {
+                    "$set": {
+                        "term": term,
+                        "pos": term_idx,
+                        "idf": float(vectorizer.idf_[term_idx]),
+                        "docs": doc_list
+                    }
+                },
+                upsert=True
+            )
 
-# Push docs to MongoDB
-index = 0
-for doc in docs:
-    docsCol.insert_one({
-        "_id": ObjectId(docIds[index]),
-        "content": doc,
-        "tfidf": docsV[index].tolist()
-    })
-    index+=1
+    def create_index(self):
+        docs, doc_ids, doc_urls = self.get_documents()
 
-# Push terms to MongoDB
-for term, idx in vectorizer.vocabulary_.items():
-    docList = []
-    index = 0
-    for doc in docs:
-        if term in doc:
-            docList.append(docIds[index])
-        index+=1
-    termsCol.update_one({"term": term}, { "$set": {
-        "term": term,
-        "pos": idx,
-        "idf": idf[idx],
-        "docs": docList
-    }}, upsert=True)
+        if not docs:
+            print("No documents found to index")
+            return
+
+        vectorizer = self.create_vectorizer()
+        tfidf_matrix = vectorizer.fit_transform(docs)
+        tfidf_array = tfidf_matrix.toarray()
+
+        self.store_documents(doc_ids, docs, doc_urls, tfidf_array)
+        self.store_terms(vectorizer, tfidf_array, doc_ids)
+
+        print(f"Indexed {len(docs)} documents with {len(vectorizer.vocabulary_)} unique terms")
