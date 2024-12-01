@@ -44,11 +44,10 @@ class Indexer:
 
     def store_terms(self, vectorizer, tfidf_array, doc_ids):
         for term, term_idx in vectorizer.vocabulary_.items():
-            doc_list = [
-                str(doc_ids[doc_idx])
-                for doc_idx, doc in enumerate(tfidf_array)
-                if doc[term_idx] > 0
-            ]
+            doc_list = []
+            for doc_idx, doc in enumerate(tfidf_array):
+                if doc[term_idx] > 0:
+                    doc_list.append(str(doc_ids[doc_idx]))
 
             self.terms_col.update_one(
                 {"term": term},

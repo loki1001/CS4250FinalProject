@@ -127,16 +127,19 @@ class SearchEngine:
             if not page_results:
                 break
 
-            print(f"\n--- Page {page} ---")
+            print()
+            print(f"Page {page}")
             for i, result in enumerate(page_results, 1):
-                print(f"\n{i + start_idx}. {result['name']} - {result['email']} ({result['score']}% match)")
+                print()
+                print(f"{i + start_idx}. {result['name']} - {result['email']} ({result['score']}% match)")
                 print(f"URL: {result['url']}")
-                print(f"Summary: {result['snippet']}")
+                print(f"Snippet: {result['snippet']}")
 
             if len(results) <= end_idx:
                 break
 
-            next_page = input("\nPress 'n' for next page, any other key for new search: ")
+            print()
+            next_page = input("Press 'n' for next page, any other key for new search: ")
             if next_page.lower() != 'n':
                 break
             page += 1
