@@ -19,7 +19,7 @@ class Indexer:
 
         for target in list(targets):
             if 'parsed_data' in target and 'content' in target['parsed_data']:
-                docs.append(target['parsed_data']['content'])
+                docs.append(" ".join(self.text_transformer.transform_text(target['parsed_data']['content'])))
                 doc_ids.append(target["_id"])
                 doc_urls.append(target["url"])
 
@@ -34,7 +34,7 @@ class Indexer:
                 {"_id": ObjectId(doc_ids[idx])},
                 {
                     "$set": {
-                        "content": doc,
+                        "content": self.pages_col.find_one({"_id": ObjectId(doc_ids[idx])})['parsed_data']['content'],
                         "tfidf": tfidf_array[idx].tolist(),
                         "url": urls[idx]
                     }
