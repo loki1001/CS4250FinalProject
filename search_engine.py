@@ -1,5 +1,7 @@
 # search_engine.py
 import time
+
+import nltk
 from text_transformer import TextTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from bson.objectid import ObjectId
@@ -15,7 +17,10 @@ class SearchEngine:
         self.snippet_size = 100
 
     def preprocess_query(self, query):
-        return self.text_transformer.transform_text(query)
+        unigrams = self.text_transformer.transform_text(query)
+        bigrams = [f'{a} {b}' for a, b in list(nltk.bigrams(unigrams))]
+        trigrams = [f'{a} {b} {c}' for a, b, c in list(nltk.trigrams(unigrams))]
+        return unigrams + bigrams + trigrams
 
     def get_matching_terms(self, query_terms):
         return list(self.terms_col.find({"term": {"$in": query_terms}}))
