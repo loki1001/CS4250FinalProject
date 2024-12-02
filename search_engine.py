@@ -65,7 +65,7 @@ class SearchEngine:
                     break
 
                 original_term = snippet[pos:pos + len(term)]
-                highlighted_snippet = (highlighted_snippet[:pos + offset] + "**" + original_term + "**" + highlighted_snippet[pos + len(term) + offset:])
+                highlighted_snippet = (highlighted_snippet[:pos + offset] + "\033[92m" + original_term + "\033[0m" + highlighted_snippet[pos + len(term) + offset:])
                 offset += 4
                 pos += len(term)
 
