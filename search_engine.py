@@ -44,7 +44,7 @@ class SearchEngine:
         content_lower = content.lower()
 
         best_pos = -1
-        for term in query_terms:
+        for term in reversed(query_terms): # Reverse term list to prioritize phrase matching (trigrams > bigrams > unigrams)
             pos = content_lower.find(term.lower())
             if pos != -1 and (best_pos == -1 or pos < best_pos):
                 best_pos = pos
@@ -56,28 +56,18 @@ class SearchEngine:
         end = min(len(content), best_pos + self.snippet_size)
 
         snippet = content[start:end]
-
         snippet_lower = snippet.lower()
-        highlighted_snippet = snippet
-        offset = 0
 
-        for term in query_terms:
-            term_lower = term.lower()
-            pos = 0
-            while True:
-                pos = snippet_lower.find(term_lower, pos)
-                if pos == -1:
-                    break
-
-                original_term = snippet[pos:pos + len(term)]
-                highlighted_snippet = (highlighted_snippet[:pos + offset] + "\033[92m" + original_term + "\033[0m" + highlighted_snippet[pos + len(term) + offset:])
-                offset += 4
-                pos += len(term)
+        for term in reversed(query_terms):
+            term_pos = snippet_lower.find(term.lower())
+            if term_pos != -1:
+                snippet = snippet[:term_pos] + "\033[92m" + snippet[term_pos:term_pos + len(term)] + "\033[0m" + snippet[term_pos+len(term):]
+                snippet_lower = snippet.lower()
 
         prefix = "..." if start > 0 else ""
         suffix = "..." if end < len(content) else ""
 
-        return prefix + highlighted_snippet + suffix
+        return prefix + snippet + suffix
 
     def format_results(self, docs, similarities, query_terms):
         results = []
